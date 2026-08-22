@@ -1,0 +1,59 @@
+{
+  "_comment": "EXAMPLE / PLACEHOLDER questions showing the expected schema only. These are NOT real IIITDM answers or verified sources. Replace with 40-50 real questions once documents are ingested, per project step 23.",
+  "questions": [
+    {
+      "id": "example-academic-1",
+      "category": "academic",
+      "question": "What is the minimum attendance requirement to be eligible to sit for the end-semester exam?",
+      "expected_source": "academic_regulations.pdf",
+      "expected_page": null,
+      "is_answerable": true,
+      "notes": "PLACEHOLDER — fill expected_page once the real document is ingested and the answer location is manually verified."
+    },
+    {
+      "id": "example-hostel-1",
+      "category": "hostel",
+      "question": "What is the required notice period for applying for hostel leave?",
+      "expected_source": "hostel_rules.pdf",
+      "expected_page": null,
+      "is_answerable": true,
+      "notes": "PLACEHOLDER — replace with the real hostel rules document filename and verified page."
+    },
+    {
+      "id": "example-placement-1",
+      "category": "placement",
+      "question": "What is the minimum CGPA required to be eligible for campus placements?",
+      "expected_source": "placement_brochure.pdf",
+      "expected_page": null,
+      "is_answerable": true,
+      "notes": "PLACEHOLDER"
+    },
+    {
+      "id": "example-institute-1",
+      "category": "institute",
+      "question": "Who is the current Director of IIITDM Kancheepuram?",
+      "expected_source": "institute_information.pdf",
+      "expected_page": null,
+      "is_answerable": true,
+      "notes": "PLACEHOLDER — this kind of fact changes over time; verify against the actual ingested document, not general knowledge."
+    },
+    {
+      "id": "example-unanswerable-1",
+      "category": "unknown",
+      "question": "What is the weather like in Chennai today?",
+      "expected_source": null,
+      "expected_page": null,
+      "is_answerable": false,
+      "notes": "Edge case: the system should refuse rather than answer, since this is not covered by any IIITDM document."
+    },
+    {
+      "id": "example-edge-case-1",
+      "category": "academic",
+      "question": "What is the course code for the core Machine Learning course, and how many credits is it worth?",
+      "expected_source": "curriculum.pdf",
+      "expected_page": null,
+      "is_answerable": true,
+      "notes": "Edge case testing exact-term retrieval (course code) — good candidate to check BM25 contribution in the ablation study."
+    }
+  ]
+}
