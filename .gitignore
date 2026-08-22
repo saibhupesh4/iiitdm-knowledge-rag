@@ -13,13 +13,12 @@ __pycache__/
 
 # ============================================================
 # Vector stores and indexes
-# Rebuild using: python scripts/rebuild_index.py
+# Keep prebuilt indexes for Streamlit Cloud deployment
 # ============================================================
 
-storage/chroma/*
-!storage/chroma/.gitkeep
-
-storage/bm25_index.pkl
+# Do NOT ignore these deployment indexes
+# storage/chroma/
+# storage/bm25_index.pkl
 
 
 # ============================================================
