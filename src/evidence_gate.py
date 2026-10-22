@@ -35,17 +35,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Any, Iterable
 
-try:
-    from langsmith import traceable
-except ImportError:  # pragma: no cover
-    def traceable(*args, **kwargs):
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 from src.config import (
@@ -250,10 +239,6 @@ def _normalize_candidates(
 # Main evidence sufficiency gate
 # ============================================================
 
-@traceable(
-    name="evidence_gate",
-    run_type="chain",
-)
 def check_sufficiency(
     candidates: Iterable[Any] | None,
     score_threshold: float = EVIDENCE_SCORE_THRESHOLD,

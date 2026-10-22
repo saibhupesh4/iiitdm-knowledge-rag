@@ -1,27 +1,16 @@
 # Evaluation Plan
 
-This document describes how retrieval, generation, and grounding quality
-will be measured. No scores are reported here — this is the plan, not
-results. Results only exist once `evaluation/*.py` scripts have actually
-been run against a live LM Studio model and a populated index, and are
-written to `evaluation/results.csv`.
+This is a small smoke set, not a benchmark. No scores are reported here.
+The current questions use source filenames and pages checked against the
+repository PDFs. A run still needs the local embedding/reranker models and
+LM Studio.
 
 ## Dataset
 
-`evaluation/questions.json` — target 40-50 manually designed questions
-covering:
-
-- Academic (curriculum, regulations, calendar)
-- Hostel (rules, leave procedure)
-- Placement (eligibility, process)
-- Institute (general information)
-- Unanswerable questions (should be correctly refused)
-- Edge cases: exact numbers, dates, course codes, names, terminology
-
-The file currently contains a small set of **example/placeholder**
-questions demonstrating the schema — see the `_comment` field in that
-file. Real questions with verified `expected_source` / `expected_page`
-values still need to be written against the actual ingested documents.
+`evaluation/questions.json` currently covers hostel leave, weekend leave,
+placement registration and eligibility, and a question outside the
+collection. It is intentionally small. Expected source/page values are
+for retrieval checks; the absent question is used for refusal checks.
 
 ## Retrieval metrics (`evaluation/evaluate_retrieval.py`)
 
@@ -35,25 +24,28 @@ values still need to be written against the actual ingested documents.
 
 | Metric           | What it measures |
 |------------------|-------------------|
-| Faithfulness     | Whether the answer's claims are supported by retrieved evidence |
-| Answer Relevance | Whether the answer actually addresses the question asked |
-| Context Precision/Recall | Where applicable: how much of the retrieved context was actually relevant / how much needed evidence was retrieved |
+| Faithfulness proxy | Lexical claim overlap check from `src/verification.py`; it can miss paraphrases and does not prove truth. |
+| Answer Relevance proxy | Cosine similarity between question and answer embeddings; it is not a correctness measure. |
 
-If a framework such as Ragas is used for any of these, its usage is kept
-modular (isolated to `evaluate_generation.py`) and each metric it reports
-is explained in plain language alongside the number.
+These scripts report proxies, not a substitute for manually reviewing
+answers and retrieved chunks. No Ragas framework is used.
 
 ## Grounding metrics (`evaluation/evaluate_grounding.py`)
 
 | Metric                 | What it measures |
 |-------------------------|-------------------|
-| Citation Accuracy       | Fraction of shown citations that map to an actually-retrieved chunk |
+| Citation Accuracy       | Fraction of shown source/page pairs found in the evidence returned with that answer |
 | Supported Claim Ratio   | supported claims / total factual claims, aggregated across questions |
 | Correct Refusal Rate    | Of the unanswerable questions, how many were correctly refused instead of answered |
 
 ## Ablation study (`evaluation/ablation.py`)
 
-Compares six pipeline configurations on the same question set:
+The script compares retrieval configurations and runs end-to-end generation
+metrics only for its full-pipeline row. It does not independently toggle
+every downstream stage, so its name should not be read as a complete causal
+ablation.
+
+It currently lists these retrieval configurations:
 
 1. Dense Retrieval only
 2. BM25 only

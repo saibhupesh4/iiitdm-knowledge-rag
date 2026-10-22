@@ -102,13 +102,10 @@ def evaluate_grounding(pipeline_fn, questions: list[dict] | None = None) -> dict
             supported_total += vr.supported_count
             claim_total += vr.total_count
 
-        # citation_accuracy needs the evidence actually used, which
-        # PipelineResult does not currently expose separately from
-        # citations; approximate here by treating citations as ground
-        # truth for their own accuracy check (always 1.0) unless the
-        # caller wires in richer diagnostics.
         if result.citations:
-            citation_scores.append(1.0)
+            citation_scores.append(
+                citation_accuracy(result.citations, result.evidence)
+            )
 
     supported_claim_ratio = supported_total / claim_total if claim_total else 0.0
     avg_citation_accuracy = sum(citation_scores) / len(citation_scores) if citation_scores else 0.0

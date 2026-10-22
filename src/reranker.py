@@ -68,20 +68,6 @@ try:
 except ImportError:  # pragma: no cover
     CrossEncoder = None
 
-try:
-    from langsmith import traceable
-except ImportError:  # pragma: no cover
-
-    def traceable(*args, **kwargs):
-        """Fallback decorator when LangSmith is unavailable."""
-
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 from src.config import (
@@ -338,10 +324,6 @@ def _clean_candidates(
     return cleaned
 
 
-@traceable(
-    name="reranker",
-    run_type="chain",
-)
 def rerank(
     query: str,
     candidates: list[HybridCandidate],

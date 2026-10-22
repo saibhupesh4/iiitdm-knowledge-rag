@@ -7,7 +7,11 @@ Pipeline:
 
     User Question
         ↓
-    Query Understanding
+    Query Routing
+        ├── General question → local LM Studio → answer (no citations)
+        └── IIITDM/document question
+                ↓
+            Query Understanding
         ↓
     Hybrid Retrieval
         ├── Dense Retrieval
@@ -51,7 +55,7 @@ Important:
 
 - No external LLM API fallback.
 - BM25 index is loaded lazily and cached.
-- Retrieval is performed before generation.
+- General questions bypass retrieval; document questions retrieve before generation.
 - Evidence is checked before generation.
 - Generated answers are verified before being returned.
 - Refusal reasons are kept separate from the user-facing refusal text.
@@ -60,23 +64,8 @@ Important:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-try:
-    from langsmith import traceable
-
-except ImportError:  # pragma: no cover
-
-    def traceable(*args, **kwargs):
-        """No-op fallback when LangSmith is unavailable."""
-
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 # ============================================================
@@ -90,6 +79,8 @@ from src.config import (
 
 from src.query_understanding import (
     detect_category,
+    is_app_help_input,
+    is_document_question,
 )
 
 from src.hybrid_retrieval import (
@@ -172,9 +163,13 @@ class PipelineResult:
     # Verification diagnostics
     verification_result: VerificationResult | None
 
+    # Keep the exact reranked chunks available for source auditing.
+    evidence: list[RerankedCandidate] = field(default_factory=list)
+
     # Final status
     refused: bool = False
     refusal_reason: str | None = None
+    answer_mode: str = "rag"
 
 
 # ============================================================
@@ -194,6 +189,35 @@ VERIFICATION_REFUSAL_MESSAGE = (
 EMPTY_ANSWER_MESSAGE = (
     "The local language model did not return a usable answer."
 )
+
+APP_HELP_MESSAGE = (
+    "I'm IIITDM Knowledge RAG, a document-grounded assistant for official "
+    "IIITDM Kancheepuram documents. I can help with academics, hostel, "
+    "placements, and institute information."
+)
+
+GENERAL_SYSTEM_PROMPT = (
+    "You are a helpful general-purpose assistant. Answer the user's "
+    "question clearly and concisely. Be honest when you are unsure. "
+    "Do not claim that your answer comes from IIITDM documents."
+)
+
+
+def _general_result(question: str, answer: str) -> PipelineResult:
+    """Return a local-model answer without document citations or grounding claims."""
+    return PipelineResult(
+        question=question,
+        category="general",
+        answer=answer,
+        citations=[],
+        candidates_retrieved=0,
+        candidates_after_rerank=0,
+        query_was_reformulated=False,
+        reformulated_query=None,
+        evidence_verdict=check_sufficiency([]),
+        verification_result=None,
+        answer_mode="general",
+    )
 
 
 # ============================================================
@@ -465,10 +489,6 @@ def _print_verification_diagnostics(
 # Main pipeline
 # ============================================================
 
-@traceable(
-    name="answer_question",
-    run_type="chain",
-)
 def answer_question(
     question: str,
     *,
@@ -523,6 +543,21 @@ def answer_question(
         raise ValueError(
             "Question cannot be empty."
         )
+
+    # Greetings and questions about this app need no model or document search.
+    if is_app_help_input(question):
+        return _general_result(question, APP_HELP_MESSAGE)
+
+    # Ordinary questions go to local chat. IIITDM and document topics
+    # continue into retrieval, evidence checks, and source citations.
+    if not is_document_question(question):
+        answer = generate(
+            GENERAL_SYSTEM_PROMPT,
+            question,
+            temperature=0.2,
+            max_tokens=1000,
+        )
+        return _general_result(question, answer)
 
     # ========================================================
     # 2. Load BM25
@@ -686,6 +721,8 @@ def answer_question(
             evidence_verdict=
                 verdict,
 
+            evidence=reranked_candidates,
+
             verification_result=None,
 
             refused=True,
@@ -760,6 +797,8 @@ def answer_question(
 
             evidence_verdict=
                 verdict,
+
+            evidence=reranked_candidates,
 
             verification_result=None,
 
@@ -960,6 +999,8 @@ def answer_question(
             evidence_verdict=
                 verdict,
 
+            evidence=reranked_candidates,
+
             verification_result=
                 verification_result,
 
@@ -1015,6 +1056,8 @@ def answer_question(
 
         evidence_verdict=
             verdict,
+
+        evidence=reranked_candidates,
 
         verification_result=
             verification_result,

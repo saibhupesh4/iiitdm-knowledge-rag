@@ -147,12 +147,8 @@ def _extract_text(message: Any) -> str:
 
         message.content
 
-    Some reasoning models may return:
-
-        message.reasoning_content
-
-    We prefer normal visible content, but fall back to reasoning_content
-    when LM Studio provides no visible content.
+    Only user-facing message content is returned. Internal reasoning is
+    never treated as an answer.
     """
 
     if message is None:
@@ -198,19 +194,6 @@ def _extract_text(message: Any) -> str:
 
             if text:
                 return text
-
-    # ---------------------------------------------------------
-    # Fallback: reasoning models
-    # ---------------------------------------------------------
-
-    reasoning = getattr(message, "reasoning_content", None)
-
-    if reasoning is not None:
-
-        reasoning_text = str(reasoning).strip()
-
-        if reasoning_text:
-            return reasoning_text
 
     return ""
 
@@ -395,12 +378,9 @@ def generate(
 
         # Useful diagnostic information
         content = getattr(message, "content", None)
-        reasoning = getattr(message, "reasoning_content", None)
-
         raise LMStudioGenerationError(
             "LM Studio generated no usable text.\n"
-            f"message.content: {content!r}\n"
-            f"message.reasoning_content: {reasoning!r}"
+            f"message.content: {content!r}"
         )
 
     return answer

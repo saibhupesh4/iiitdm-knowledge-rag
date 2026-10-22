@@ -1,37 +1,21 @@
-# --- Core RAG orchestration ---
-langchain
+# PDF loading and text processing
 langchain-community
+langchain-core
+langchain-text-splitters
 langchain-chroma
 langchain-huggingface
-
-# --- Vector store ---
-chromadb
-
-# --- Embeddings + cross-encoder reranker (local models, no API key) ---
-sentence-transformers
-transformers
-torch
-
-# --- Lexical retrieval ---
-rank-bm25
-
-# --- PDF ingestion ---
 pypdf
 
-# --- UI ---
-streamlit
+# Local semantic retrieval and reranking
+sentence-transformers
+torch
 
-# --- LM Studio client (OpenAI-compatible local endpoint, NOT OpenAI's cloud API) ---
+# Keyword retrieval
+rank-bm25
+
+# Streamlit UI and local LM Studio client
+streamlit
 openai
 
-# --- LangSmith (optional observability/tracing layer, see README) ---
-langsmith
-
-# --- Config / utils ---
+# Configuration
 python-dotenv
-pandas
-numpy
-scikit-learn
-
-# --- Evaluation / ablation plotting ---
-matplotlib

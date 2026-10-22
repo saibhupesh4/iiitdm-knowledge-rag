@@ -1,60 +1,40 @@
-# Setup
+# Local setup
 
-## 1. Python environment
+## Python environment
 
-```bash
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+From the project folder in PowerShell:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-## 2. Environment variables
+Edit `.env` and set `LM_STUDIO_MODEL` to the exact model ID shown by the
+LM Studio local server. The sample value is only a placeholder.
 
-```bash
-cp .env.example .env
+## LM Studio
+
+Load a local chat/instruct model and start the server. The default endpoint
+is `http://127.0.0.1:1234/v1`. Check connectivity with:
+
+```powershell
+python scripts/test_lm_studio.py
 ```
 
-Then edit `.env`. At minimum, `LM_STUDIO_MODEL` must match the model
-name shown in LM Studio's "Local Server" tab (see `docs/lm_studio.md`).
-No `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` is required
-anywhere in this project.
+## Documents and indexes
 
-## 3. LM Studio
+Official PDFs belong under `data/raw/<category>/`. The existing indexes in
+`storage/` are loaded by the app. Rebuild them only after changing the PDFs
+or indexing settings; rebuilding replaces the current persisted indexes:
 
-See `docs/lm_studio.md` for full setup. Quick version:
-
-1. Install LM Studio and load a chat model.
-2. Start its local server (default `http://localhost:1234/v1`).
-3. Verify connectivity:
-   ```bash
-   python scripts/test_lm_studio.py
-   ```
-
-## 4. Add documents
-
-Place official IIITDM PDFs under `data/raw/<category>/` — see
-`data/README.md` for the expected folder layout and metadata.
-
-## 5. Build the indexes
-
-```bash
+```powershell
 python scripts/rebuild_index.py
 ```
 
-This builds and persists both the Chroma vector index and the BM25
-index under `storage/`. Re-run it whenever documents change.
+## Start the app
 
-## 6. Run the app
-
-```bash
+```powershell
 streamlit run app.py
-```
-
-## 7. Run evaluation (optional, once documents + indexes exist)
-
-```bash
-python evaluation/evaluate_retrieval.py
-python evaluation/evaluate_generation.py
-python evaluation/evaluate_grounding.py
-python evaluation/ablation.py
 ```

@@ -143,39 +143,6 @@ def _get_float(key: str, default: float) -> float:
         ) from exc
 
 
-def _get_bool(key: str, default: bool = False) -> bool:
-    """
-    Read a boolean environment variable.
-
-    Accepted true values:
-        1, true, yes, on
-
-    Accepted false values:
-        0, false, no, off
-    """
-    raw_value = os.getenv(key)
-
-    if raw_value is None or not raw_value.strip():
-        return default
-
-    value = raw_value.strip().lower()
-
-    true_values = {"1", "true", "yes", "on"}
-    false_values = {"0", "false", "no", "off"}
-
-    if value in true_values:
-        return True
-
-    if value in false_values:
-        return False
-
-    raise ValueError(
-        f"Environment variable '{key}' must be a boolean. "
-        f"Received: {raw_value!r}. "
-        f"Use one of: true, false, 1, 0, yes, no, on, off."
-    )
-
-
 def _resolve_project_path(value: str | None, default: Path) -> Path:
     """
     Convert a configured path into an absolute Path.
@@ -310,21 +277,6 @@ RERANK_TOP_K: int = _get_int(
 
 
 # =============================================================
-# Optional Weighted Hybrid Fusion
-# =============================================================
-
-# Retained for compatibility with implementations that use
-# weighted dense + BM25 fusion.
-#
-# If hybrid_retrieval.py uses only RRF, this value is harmless
-# and may simply remain unused.
-DENSE_WEIGHT: float = _get_float(
-    "DENSE_WEIGHT",
-    0.5,
-)
-
-
-# =============================================================
 # Reciprocal Rank Fusion
 # =============================================================
 
@@ -371,35 +323,6 @@ QUERY_CATEGORIES: list[str] = [
     "unknown",
 ]
 
-
-# =============================================================
-# LangSmith
-# =============================================================
-
-LANGSMITH_TRACING: bool = _get_bool(
-    "LANGSMITH_TRACING",
-    False,
-)
-
-LANGSMITH_API_KEY: str | None = _get_optional_string(
-    "LANGSMITH_API_KEY"
-)
-
-LANGSMITH_PROJECT: str = _get_env_string(
-    "LANGSMITH_PROJECT",
-    "iiitdm-knowledge-rag",
-)
-
-LANGSMITH_ENDPOINT: str | None = _get_optional_string(
-    "LANGSMITH_ENDPOINT"
-)
-
-# LangSmith is considered enabled only when tracing is requested
-# and an actual API key is available.
-LANGSMITH_ENABLED: bool = bool(
-    LANGSMITH_TRACING
-    and LANGSMITH_API_KEY
-)
 
 
 # =============================================================
@@ -461,15 +384,6 @@ def validate_config() -> None:
     if RERANK_TOP_K > HYBRID_TOP_K:
         raise ValueError(
             "RERANK_TOP_K cannot be greater than HYBRID_TOP_K."
-        )
-
-    # -------------------------
-    # Weighted fusion validation
-    # -------------------------
-
-    if not 0.0 <= DENSE_WEIGHT <= 1.0:
-        raise ValueError(
-            "DENSE_WEIGHT must be between 0 and 1."
         )
 
     # -------------------------
@@ -571,7 +485,6 @@ if __name__ == "__main__":
     print("Rerank top-k:", RERANK_TOP_K)
 
     print()
-    print("Dense weight:", DENSE_WEIGHT)
     print("RRF k:", RRF_K)
 
     print()
@@ -585,8 +498,6 @@ if __name__ == "__main__":
     )
 
     print()
-    print("LangSmith tracing:", LANGSMITH_TRACING)
-    print("LangSmith enabled:", LANGSMITH_ENABLED)
 
     print()
     print("Configuration loaded successfully.")

@@ -28,17 +28,6 @@ the choice here once implemented.
 
 from __future__ import annotations
 
-try:
-    from langsmith import traceable
-except ImportError:  # pragma: no cover
-    def traceable(*args, **kwargs):
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def _decorator(func):
-            return func
-
-        return _decorator
 
 # Rule-based expansion chosen over an LLM call: it is simple, fully
 # explainable, free of an extra network round-trip to LM Studio, and
@@ -67,13 +56,13 @@ CATEGORY_EXPANSIONS: dict[str, str] = {
 }
 
 
-@traceable(name="query_reformulation", run_type="chain")
 def reformulate_query(original_query: str, category: str = "unknown") -> str:
     """
     Produce a reformulated version of original_query that makes intent and
     key entities explicit, to give retrieval a second, better chance.
 
-    LangSmith trace shows original_query in, reformulated query out.
+    Category terms are appended to give lexical retrieval more document
+    vocabulary to match on its single bounded retry.
     """
     expansion = CATEGORY_EXPANSIONS.get(category, CATEGORY_EXPANSIONS["unknown"])
     return f"{original_query.strip()} {expansion}"

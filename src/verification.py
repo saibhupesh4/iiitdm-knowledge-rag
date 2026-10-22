@@ -32,19 +32,6 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-try:
-    from langsmith import traceable
-except ImportError:  # pragma: no cover
-
-    def traceable(*args, **kwargs):
-
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 from src.reranker import RerankedCandidate
@@ -574,10 +561,6 @@ def verify_claim(
 # Answer verification
 # ============================================================
 
-@traceable(
-    name="verification",
-    run_type="chain",
-)
 def verify_answer(
     draft_answer: str | None,
     evidence: list[RerankedCandidate] | None,

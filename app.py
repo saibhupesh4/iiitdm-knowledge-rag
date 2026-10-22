@@ -32,7 +32,6 @@ import streamlit as st
 
 from src.pipeline import answer_question, PipelineResult
 from src.llm import LMStudioUnavailableError
-from src.config import LANGSMITH_ENABLED, LANGSMITH_PROJECT
 
 
 st.set_page_config(page_title="IIITDM Knowledge RAG", layout="centered")
@@ -62,6 +61,13 @@ def render_answer(result: "PipelineResult") -> None:
     Render the ANSWER section.
     """
     st.subheader("Answer")
+    if result.answer_mode == "general":
+        st.caption(
+            "General answer from local LM Studio; it is not grounded in the IIITDM document collection."
+        )
+        st.write(result.answer)
+        return
+
     if result.refused:
         st.warning(result.refusal_reason)
     else:
@@ -136,14 +142,6 @@ def render_technical_details_expander(result: "PipelineResult") -> None:
             for claim in vr.claims:
                 st.write(f"- [{claim.status.value}] {claim.claim_text}")
 
-        # LangSmith is optional observability only — never required for the
-        # app to function. This just reflects config.py's view of whether
-        # tracing is currently active.
-        st.divider()
-        if LANGSMITH_ENABLED:
-            st.write(f"LangSmith tracing: ON (project: {LANGSMITH_PROJECT})")
-        else:
-            st.write("LangSmith tracing: OFF")
 
 
 def main() -> None:
@@ -152,7 +150,7 @@ def main() -> None:
 
     if question:
         try:
-            with st.spinner("Retrieving and generating..."):
+            with st.spinner("Preparing your answer..."):
                 result = answer_question(question)
         except LMStudioUnavailableError:
             st.error("LM Studio server is not available. Start the local server and try again.")
@@ -162,6 +160,9 @@ def main() -> None:
             return
 
         render_answer(result)
+        if result.answer_mode == "general":
+            return
+
         render_sources(result)
         render_retrieval_details_expander(result)
         render_retrieved_sources_expander(result)

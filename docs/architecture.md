@@ -1,157 +1,58 @@
 # Architecture
 
-This document describes the locked architecture for IIITDM Knowledge RAG.
-It is a document-grounded question-answering system over official IIITDM
-Kancheepuram documents — not a generic "chat with PDF" tool.
+IIITDM Knowledge RAG answers questions using passages from the PDFs in `data/raw/`. The Streamlit app is the UI; the pipeline is implemented in Python modules under `src/`. LM Studio serves the generation model locally through its OpenAI-compatible endpoint.
 
-## Full pipeline
+## Components
 
-```
-OFFICIAL IIITDM PDFs
-        |
-        v
-PDF INGESTION                          (src/ingestion.py)
-        |
-        v
-TEXT CLEANING + METADATA               (src/cleaning.py)
-        |
-        v
-STRUCTURE-AWARE RECURSIVE CHUNKING     (src/chunking.py)
-        |
-        v
-BGE-SMALL EMBEDDINGS                   (src/embeddings.py)
-        |
-        v
-CHROMA + BM25 INDEX                    (src/dense_retrieval.py, src/bm25.py)
-        |
-        v
-USER QUERY
-        |
-        v
-QUERY UNDERSTANDING                    (src/query_understanding.py)
-        |
-        v
-   DENSE SEARCH  +  BM25 SEARCH        (src/dense_retrieval.py, src/bm25.py)
-        |
-        v
-SCORE NORMALIZATION                    (src/hybrid_retrieval.py)
-        |
-        v
-SCORE FUSION                           (src/hybrid_retrieval.py)
-        |
-        v
-HYBRID TOP-20                          (src/hybrid_retrieval.py)
-        |
-        v
-CROSS-ENCODER RERANKER                 (src/reranker.py)
-        |
-        v
-TOP-5
-        |
-        v
-EVIDENCE SUFFICIENCY                   (src/evidence_gate.py)
-        |
-        v
-QUERY REFORMULATION IF WEAK            (src/query_reformulation.py)
-   (bounded retry, MAX_QUERY_REFORMULATION_RETRIES = 1)
-        |
-        v
-GROUNDED PROMPT                        (src/prompt.py)
-        |
-        v
-LM STUDIO (LOCAL LLM)                  (src/llm.py)
-        |
-        v
-DRAFT ANSWER
-        |
-        v
-CLAIM / EVIDENCE CHECK                 (src/verification.py)
-        |
-        v
-FINAL ANSWER / REFUSAL
-        |
-        v
-CITATIONS                              (src/citations.py)
-        |
-        v
-STREAMLIT                              (app.py)
-        |
-        v
-EVALUATION                             (evaluation/evaluate_*.py)
-        |
-        v
-ABLATION                               (evaluation/ablation.py)
+- `src/ingestion.py`, `cleaning.py`, and `chunking.py` load one page per PDF document, preserve source, title, category, and 1-based page metadata, remove basic extraction artifacts, and split pages into overlapping text chunks.
+- `src/embeddings.py` loads `BAAI/bge-small-en-v1.5` for both document and query embeddings. `src/dense_retrieval.py` stores and searches those vectors in Chroma.
+- `src/bm25.py` builds and searches the persisted keyword index.
+- `src/hybrid_retrieval.py` combines dense and BM25 ranks with reciprocal rank fusion. `src/reranker.py` sorts the candidates with a local cross-encoder and returns the top results.
+- `src/evidence_gate.py` checks reranker scores before generation. If evidence is weak, `src/query_reformulation.py` appends fixed category terms and the pipeline retries up to the configured limit.
+- `src/prompt.py` formats the evidence and instructions. `src/llm.py` calls the configured local LM Studio model.
+- `src/verification.py` checks answer claims using lexical overlap with cited evidence. `src/citations.py` carries the retrieved documents’ titles and page numbers into the result.
+- `app.py` displays the result returned by `src/pipeline.py`.
+
+## Query path
+
+```mermaid
+flowchart LR
+    subgraph Build[Index build: scripts/rebuild_index.py]
+        PDF[PDF pages] --> ING[Load, clean, and chunk]
+        ING --> EMB[Local BGE embeddings]
+        EMB --> CHROMA[(Persisted Chroma)]
+        ING --> BM25[(Persisted BM25)]
+    end
+    subgraph Answer[Question answering: app.py and src/pipeline.py]
+        UI[Streamlit question] --> P[Pipeline]
+        P --> ROUTE{IIITDM or document topic?}
+        ROUTE -->|No| CHAT[General local-model answer]
+        ROUTE -->|Yes| DS[Dense search]
+        ROUTE -->|Yes| BS[BM25 search]
+        DS --> F[Rank fusion]
+        BS --> F
+        F --> RR[Cross-encoder reranker]
+        RR --> EG{Evidence gate}
+        EG -->|Sufficient| PROMPT[Grounded prompt]
+        EG -->|Insufficient| REFUSE[Refusal]
+        PROMPT --> LM[Local LM Studio]
+        LM --> VERIFY[Lexical claim check]
+        VERIFY --> RESULT[Answer and citations]
+        VERIFY --> REFUSE
+        RESULT --> UI
+    end
+    CHROMA --> DS
+    BM25 --> BS
 ```
 
-`src/pipeline.py` is the single orchestration point that wires every
-module above together for a live query. `app.py` calls only
-`pipeline.answer_question()` — it does not call the individual retrieval,
-generation, or verification modules directly.
+## Why this design
 
-## LangSmith: a side observability layer, not a pipeline component
+Dense retrieval can match paraphrases; BM25 can match exact policy terms, dates, and course codes. Reciprocal rank fusion combines their rankings without treating their scores as directly comparable. The cross-encoder then scores each query and passage together. The generation model remains local, and the gate can refuse before generation when the reranker scores do not clear the configured threshold.
 
-LangSmith sits *beside* the pipeline above, not inside its decision
-flow:
+## Limitations
 
-```
-            IIITDM RAG PIPELINE (unchanged, see diagram above)
-                          |
-        +-----------------+-----------------+
-        |                 |                 |
-        v                 v                 v
-    RETRIEVAL          RERANKING         GENERATION
-        |                 |                 |
-        +-----------------+-----------------+
-                          |
-                          v
-                     LANGSMITH
-                OBSERVABILITY LAYER  (optional)
-                          |
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-       TRACES          LATENCY        DEBUGGING /
-                                       EVALUATION
-```
-
-Concretely, `@traceable` decorates the major logical steps
-(`answer_question`, `detect_category`, `hybrid_search`, `rerank`,
-`check_sufficiency`, `reformulate_query`, `verify_answer`), and the LM
-Studio OpenAI-SDK client is wrapped with `langsmith.wrappers.wrap_openai`
-in `src/llm.py` so LM Studio calls show up as generation spans too.
-
-None of this changes what any function returns or how a decision is
-made — `@traceable` only observes. The pipeline must, and does, keep
-working with `LANGSMITH_TRACING=false` or LangSmith otherwise
-unavailable.
-
-## Why hybrid retrieval
-
-Dense (embedding-based) retrieval is strong at semantic similarity but
-can miss exact terms that matter in official documents: course codes,
-policy names, percentages, dates, form names, abbreviations. BM25
-(lexical) retrieval is strong at exactly these exact-match cases. Fusing
-both, rather than picking one, is intended to cover both failure modes.
-
-## Why an evidence sufficiency gate
-
-Not every question can be answered from the available documents. Rather
-than always generating something, the pipeline checks whether the
-reranked evidence actually clears a relevance threshold before
-generation is attempted at all. If it doesn't, one bounded query
-reformulation + retry is attempted; if that still doesn't produce
-sufficient evidence, the system refuses rather than guesses.
-
-## Why claim verification after generation
-
-Even with grounded evidence, an LLM can still produce a claim not
-actually supported by what was retrieved. Verification re-checks the
-draft answer's claims against the evidence before showing it to the
-user. This is described as an attempt to reduce unsupported claims — not
-as a guarantee that hallucination is eliminated.
-
-## Explicitly out of scope
-
-Per the locked architecture, this project does NOT use: LangGraph,
-multi-agent architectures, GraphRAG, multimodal RAG, Kubernetes, cloud
-infrastructure, unnecessary databases, or unnecessary external APIs.
+- Reranker scores and the configured gate threshold have not been validated against a labeled local question set.
+- The rule-based retry adds broad category terms; it can help exact-term search but can also introduce unrelated terms.
+- The answer verifier uses word overlap. It can reject valid paraphrases and accept statements that share words without being entailed.
+- PDF extraction quality and the contents of the indexes constrain what can be answered. Scanned pages may have little or no extractable text.
+- Local embedding and reranker model files may require a first-run download. Generation needs LM Studio running with the configured model loaded.

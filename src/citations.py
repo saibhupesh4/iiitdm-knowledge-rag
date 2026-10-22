@@ -27,7 +27,7 @@ from src.reranker import RerankedCandidate
 class Citation:
     index: int
     title: str
-    page: int
+    page: int | str
     source_filename: str
 
 
@@ -37,17 +37,10 @@ def build_citations(chunks: list[RerankedCandidate]) -> list[Citation]:
     given (which should already reflect relevance / usage order).
     """
     citations: list[Citation] = []
-    seen: set[tuple[str, int]] = set()
-
     for chunk in chunks:
         title = chunk.metadata.get("title", chunk.metadata.get("source", "Unknown document"))
         page = chunk.metadata.get("page", 0)
         source_filename = chunk.metadata.get("source", "unknown")
-
-        key = (title, page)
-        if key in seen:
-            continue
-        seen.add(key)
 
         citations.append(
             Citation(

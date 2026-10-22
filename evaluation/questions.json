@@ -1,59 +1,41 @@
 {
-  "_comment": "EXAMPLE / PLACEHOLDER questions showing the expected schema only. These are NOT real IIITDM answers or verified sources. Replace with 40-50 real questions once documents are ingested, per project step 23.",
+  "_comment": "Small manually checked smoke set. Source filenames and page numbers refer to the repository PDFs; this is not a statistically meaningful benchmark.",
   "questions": [
     {
-      "id": "example-academic-1",
-      "category": "academic",
-      "question": "What is the minimum attendance requirement to be eligible to sit for the end-semester exam?",
-      "expected_source": "academic_regulations.pdf",
-      "expected_page": null,
-      "is_answerable": true,
-      "notes": "PLACEHOLDER — fill expected_page once the real document is ingested and the answer location is manually verified."
-    },
-    {
-      "id": "example-hostel-1",
+      "id": "hostel-leave-notice",
       "category": "hostel",
-      "question": "What is the required notice period for applying for hostel leave?",
-      "expected_source": "hostel_rules.pdf",
-      "expected_page": null,
+      "question": "How early must I give the hostel caretaker my leave form before leaving campus?",
+      "expected_source": "20_hostel_rules_and_regulations_2025_2026.pdf",
+      "expected_page": 17,
       "is_answerable": true,
-      "notes": "PLACEHOLDER — replace with the real hostel rules document filename and verified page."
+      "notes": "The 2025-26 hostel rules require the hard-copy H1 leave form at least 48 hours before departure. Verified against the PDF text."
     },
     {
-      "id": "example-placement-1",
+      "id": "hostel-weekend-wording",
+      "category": "hostel",
+      "question": "Can a student go home for a weekend, and what permission is needed?",
+      "expected_source": "20_hostel_rules_and_regulations_2025_2026.pdf",
+      "expected_page": 18,
+      "is_answerable": true,
+      "notes": "Paraphrased query. Page 18 describes weekend eligibility for nearby students and parental consent endorsed by the warden. Verified against the PDF text."
+    },
+    {
+      "id": "placement-registration-eligibility",
       "category": "placement",
-      "question": "What is the minimum CGPA required to be eligible for campus placements?",
-      "expected_source": "placement_brochure.pdf",
-      "expected_page": null,
+      "question": "What must a student do to register for campus placements, and what conditions affect eligibility?",
+      "expected_source": "32_placement_policy_2026_27.pdf",
+      "expected_page": 1,
       "is_answerable": true,
-      "notes": "PLACEHOLDER"
+      "notes": "Page 1 describes the registration form, resume and fee, registration window, and eligibility conditions including active backlogs and PET. Verified against the PDF text."
     },
     {
-      "id": "example-institute-1",
-      "category": "institute",
-      "question": "Who is the current Director of IIITDM Kancheepuram?",
-      "expected_source": "institute_information.pdf",
-      "expected_page": null,
-      "is_answerable": true,
-      "notes": "PLACEHOLDER — this kind of fact changes over time; verify against the actual ingested document, not general knowledge."
-    },
-    {
-      "id": "example-unanswerable-1",
+      "id": "out-of-scope-veterinary-clinic",
       "category": "unknown",
-      "question": "What is the weather like in Chennai today?",
+      "question": "Does IIITDM have a veterinary clinic for students?",
       "expected_source": null,
       "expected_page": null,
       "is_answerable": false,
-      "notes": "Edge case: the system should refuse rather than answer, since this is not covered by any IIITDM document."
-    },
-    {
-      "id": "example-edge-case-1",
-      "category": "academic",
-      "question": "What is the course code for the core Machine Learning course, and how many credits is it worth?",
-      "expected_source": "curriculum.pdf",
-      "expected_page": null,
-      "is_answerable": true,
-      "notes": "Edge case testing exact-term retrieval (course code) — good candidate to check BM25 contribution in the ablation study."
+      "notes": "Out-of-scope check: no supporting veterinary clinic information was found in the available document collection during the BM25 inspection."
     }
   ]
 }

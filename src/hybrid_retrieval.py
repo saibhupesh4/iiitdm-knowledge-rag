@@ -33,37 +33,6 @@ from typing import Any
 
 
 # ============================================================
-# Optional LangSmith tracing
-# ============================================================
-
-try:
-    from langsmith import traceable
-
-except ImportError:  # pragma: no cover
-
-    def traceable(*args, **kwargs):
-        """
-        Fallback decorator when LangSmith is not installed.
-
-        Supports both:
-
-            @traceable
-
-        and:
-
-            @traceable(...)
-        """
-
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
-
-
-# ============================================================
 # Project imports
 # ============================================================
 
@@ -445,10 +414,6 @@ def fuse_candidates_rrf(
 # Hybrid search
 # ============================================================
 
-@traceable(
-    name="hybrid_retrieval",
-    run_type="retriever",
-)
 def hybrid_search(
     query: str,
     bm25_index: BM25Index,

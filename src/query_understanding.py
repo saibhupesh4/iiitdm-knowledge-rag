@@ -10,9 +10,9 @@ architecture, this must stay a small, inspectable component.
 Categories (see config.QUERY_CATEGORIES):
     academic | hostel | placement | institute | unknown
 
-The detected category can optionally influence retrieval (e.g. metadata
-filtering or a ranking boost for chunks whose category matches) — that
-wiring happens in hybrid_retrieval.py / pipeline.py, not here.
+The router sends ordinary questions to general local chat and IIITDM or
+institute-document topics to RAG. Category detection supplies terms for
+the bounded retry in the RAG path.
 
 Input:  a user question (str)
 Output: a category (str), one of config.QUERY_CATEGORIES
@@ -23,23 +23,12 @@ Example:
 
 from __future__ import annotations
 
-try:
-    from langsmith import traceable
-except ImportError:  # pragma: no cover
-    def traceable(*args, **kwargs):
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def _decorator(func):
-            return func
-
-        return _decorator
+import re
 
 from src.config import QUERY_CATEGORIES
 
-# TODO: refine these keyword lists against real IIITDM document vocabulary
-# once documents are available. Keep this mapping simple and easy to read —
-# that is the point of this module.
+# These categories are used only to choose fixed terms for a weak-evidence
+# retry; they do not filter the initial retrieval results.
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "academic": ["curriculum", "course", "credit", "attendance", "exam", "syllabus", "grade", "cgpa"],
     "hostel": ["hostel", "leave", "warden", "mess", "room", "curfew"],
@@ -47,8 +36,53 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "institute": ["institute", "iiitdm", "campus", "director", "department", "facility"],
 }
 
+_APP_HELP_INPUTS = {
+    "hi",
+    "hello",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "thanks",
+    "thank you",
+    "who are you",
+    "what are you",
+    "what can you do",
+    "what is your purpose",
+    "how can you help",
+    "tell me about yourself",
+    "what is this app",
+    "help",
+}
 
-@traceable(name="query_understanding", run_type="chain")
+_DOCUMENT_TOPICS = {
+    keyword
+    for keywords in CATEGORY_KEYWORDS.values()
+    for keyword in keywords
+} | {
+    "academic calendar", "admission", "anti ragging", "btech", "complaint",
+    "fee", "fees", "faculty", "handbook", "harassment", "icc", "institute",
+    "kancheepuram", "mtech", "ordinance", "phd", "policy", "regulation",
+    "rules", "scholarship", "semester", "tuition",
+}
+
+
+def is_app_help_input(question: str) -> bool:
+    """Recognize greetings and app-help prompts that need no document search."""
+    normalized = re.sub(r"[^\w\s]", "", question.casefold()).strip()
+    return normalized in _APP_HELP_INPUTS
+
+
+def is_document_question(question: str) -> bool:
+    """Route IIITDM and institute-document topics through RAG."""
+    normalized = re.sub(r"[^\w\s]", " ", question.casefold())
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return any(
+        re.search(rf"\b{re.escape(topic)}\b", normalized)
+        for topic in _DOCUMENT_TOPICS
+    )
+
+
 def detect_category(question: str) -> str:
     """
     Return the best-matching category for a question, or "unknown" if no
